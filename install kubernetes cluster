@@ -1,0 +1,144 @@
+一，安装docker-ce 17.03
+1，下载rpm包 
+ Wget -P /tmp https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/stable/Packages/docker-ce-17.03.0.ce-1.el7.centos.x86_64.rpm
+ 
+ wget -P /tmp https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/stable/Packages/docker-ce-selinux-17.03.0.ce-1.el7.centos.noarch.rpm
+
+2，安装rpm包 
+yum install -y /tmp/docker*.rpm && rm -f /tmp/docker*.rpm
+
+3，指定加速器使用Docker中国加
+echo '{"registry-mirrors":["https://registry.docker-cn.com"]}' > /etc/docker/daemon.json
+
+二，安装kubernetes1.11.0
+1，准备
+a,修改hosts文件
+vim /etc/hosts
+47.98.255.0 test30
+47.95.223.227 linux01
+47.94.3.211 linux02
+b,配置转发参数
+cat <<EOF > /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+vm.swappiness=0
+EOF
+然后执行 sysctl --system      使之生效
+c,关闭swap
+swapoff -a
+要永久禁掉swap分区，打开如下文件注释掉swap那一行 
+  vim /etc/fstab
+d，关闭seliunx和firewalld
+临时禁用selinux   setebforce 0
+永久关闭 修改/etc/sysconfig/selinux文件设置  sed -i 's/SELINUX=permissive/SELINUX=disabled/' /etc/sysconfig/selinux
+关闭防火墙 systemctl disable firewalld  systemctl stop firewalld  (生产环境不适用)
+  e，禁用iptables filter表中FOWARD链，这样会引起Kubernetes集群中跨Node的Pod无法通信，在各docker节点执行以下命令  (此条看情况)
+iptables  -P  FORWARD  ACCEPT
+可在docker的systemd unit文件中以ExecStartPost加入上面的命令
+vim /etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+ExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT
+systemctl daemon-reload
+systemctl restart docker
+
+
+2，安装kubeadm、kubelet、kubectl
+安装 Kubeadm 首先我们要配置好阿里云的国内源，执行如下命令：
+cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
+enabled=1
+gpgcheck=0
+EOF
+之后呢，执行以下命令来重建 Yum 缓存：
+yum -y install epel-release
+yum clean all
+yum makecache
+下面就开始正式安装 Kubeadm 了：
+ yum -y install kubelet-1.11.0-0 （指定版本）
+ yum -y install kubectl-1.11.0-0
+ yum -y install kubeadm-1.11.0-0
+ yum -y install kubernetes-cni （前面三个安装了这个也会自动被装上）
+然后启动kubelet
+systemctl enable kubelet && systemctl start kubelet
+
+3，配置kubeadm使用的镜像 （这很重要，因为在国内的原因，无法访问到 Google 的镜像库，所以我们需要执行以下脚本来从 Docker Hub 仓库中获取相同的镜像，并且更改 TAG 让其变成与 Google 拉去镜像一致。）
+新建一个 Shell 脚本
+#!/bin/bash
+images=(kube-proxy-amd64:v1.11.0 kube-scheduler-amd64:v1.11.0 kube-controller-manager-amd64:v1.11.0 kube-apiserver-amd64:v1.11.0
+etcd-amd64:3.2.18 coredns:1.1.3 pause-amd64:3.1 kubernetes-dashboard-amd64:v1.8.3 k8s-dns-sidecar-amd64:1.14.9 k8s-dns-kube-dns-amd64:1.14.9
+k8s-dns-dnsmasq-nanny-amd64:1.14.9 )
+for imageName in ${images[@]} ; do
+docker pull keveon/$imageName
+docker tag keveon/$imageName k8s.gcr.io/$imageName
+docker rmi keveon/$imageName
+done
+docker tag da86e6ba6ca1 k8s.gcr.io/pause:3.1  （必须加）
+然后执行  chmod +xxx.sh   sh xxx.sh
+查看 ：etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+vim  etc/systemd/system/kubelet.service.d/10-kubeadm.conf
+# Note: This dropin only works with kubeadm and kubelet v1.11+
+[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+Environment="KUBELET_CGROUP_ARGS=--cgroup-driver=cgroupfs"
+# This is a file that "kubeadm init" and "kubeadm join" generates at runtime, populating the KUBELET_KUBEADM_ARGS variable dynamically
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+# This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably, the user should use
+# the .NodeRegistration.KubeletExtraArgs object in the configuration files instead. KUBELET_EXTRA_ARGS should be sourced from this file.
+EnvironmentFile=-/etc/sysconfig/kubelet
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+
+这里需要主意的是要看一下docker的cgroup driver与 --cgroup-driver要一致。 可以用 docker info |grep cgroup 查看，有可能是systemd 或者 cgroupfs     
+
+systemctl daemon-reload
+systemctl restart kubelet                                                                                                      
+以上部分做完之后  在所有node节点做相同操作（别漏了）
+4，在master上操作  初始化相关镜像
+  kubeadm init  --kubernetes-version=v1.11.0  --pod-network-cidr=10.244.0.0/16  --apiserver-advertise-address=172.17.87.52（此选项可不用）
+  --kubernetes-version  版本号     --pod-network-cidr  pod网络ip     --apiserver-advertise-address  地址
+4.1 配置kubectl认证信息
+  export KUBECONFIG=/etc/kubernetes/admin.conf
+如果你想持久化的话，直接执行以下命令
+echo "export KUBECONFIG=/etc/kubernetes/admin.conf" >> ~/.bash_profile
+source .bash_profile
+4.2 安装flannel网络
+ wget https://raw.githubusercontent.com/coreos/flannel/v0.10.0/Documentation/kube-flannel.yml 
+或：kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+或：自己手动写文件
+ kubectl create -f kube-flannel.yml （不建议使用，无法更新，必须先delete）  或者kubectl apply -f kube-flannel.yaml  （创建+更新，可以重复使用）
+ 查看节点
+ kubectl get nodes
+一般来说master是负载调度node的，不参与负载，如果需要参与 可：
+ kubectl taint nodes --all node-role.kubernetes.io/master-
+5，在node节点操作
+  执行刚刚主机输出的：
+  kubeadm join 172.17.87.52:6443 --token b0j8kp.t7vaqce6rpypaz5u --discovery-token-ca-cert-hash sha256:086f10f1d4c17e54d4c625449fc587d709d0b7fe916a6ccf280fb5a55edd7564
+6，在master上操作
+ kubectl get nodes
+ Kubectl get pods --all-namespaces
+
+7,安装Dashboard 在master上操作  (heatpster已经不用了，可删除)
+地址：https://github.com/gh-Devin/kubernetes-dashboard
+下载：git clone https://github.com/gh-Devin/kubernetes-dashboard.git
+执行：Kubectl -n kube-system create -f .
+会发现报错。。。看不到容器，这个时候你需要新建一个 dashboard-admin.yaml 文件，然后填充如下内容：
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernetes-dashboard
+  labels:
+    k8s-app: kubernetes-dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kubernetes-dashboard
+  namespace: kube-system
+填好之后呢，执行如下命令启动容器：
+
+kubectl -f ./dashboard-admin.yaml create
+
