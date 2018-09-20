@@ -1,3 +1,8 @@
+#定时任务 cronjob
+#如果失败 失败了。这是因为 Kubernetes 默认没有 enable CronJob 功能，需要在 kube-apiserver 中加入这个功能。
+#方法很简单，修改 kube-apiserver 的配置文件 /etc/kubernetes/manifests/kube-apiserver.yaml：
+#在spec的command：下添加   - --runtime-config=batch/v2alpha1=true
+示例：
 apiVersion: batch/v2alpha1
 kind: CronJob
 metadata:
