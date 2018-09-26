@@ -1,0 +1,37 @@
+使用
+1、helm search 查看charts  stable是官方的  local是自己的
+ 
+2、查看repo   helm repo list
+
+3、安装  
+   helm install stable/mysql               
+   输出主要三部分：
+   ① chart 本次部署的描述信息：
+    NAME 是 release 的名字，因为我们没用 -n 参数指定，Helm 随机生成了一个，这里是  enervated-mink。
+    NAMESPACE 是 release 部署的 namespace，默认是 default，也可以通过 --namespace 指定。
+    STATUS 为 DEPLOYED，表示已经将 chart 部署到集群。
+    
+   ② 当前 release 包含的资源：Service、Deployment、Secret 和 PersistentVolumeClaim，其名字都是  enervated-mink-mysql，命名的格式为 ReleasName-ChartName。
+
+   ③ NOTES 部分显示的是 release 的使用方法。比如如何访问 Service，如何获取数据库密码，以及如何连接数据库等。
+    通过 kubectl get 可以查看组成 release 的各个对象：
+   
+  [T_T] linux02 ~# kubectl get service
+  NAME                     TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+  enervated-mink-mysql     ClusterIP   10.108.233.39   <none>        3306/TCP         17m
+  
+  [^_^] linux02 ~# kubectl get deployment
+  NAME                             DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+  enervated-mink-mysql             1         1         1            0           23m
+  
+  [^_^] linux02 ~# kubectl get pod
+  NAME                                              READY     STATUS    RESTARTS   AGE
+  enervated-mink-mysql-64b7fbd5b-bhqz9              0/1       Pending   0          24m
+  
+ 4、删除  helm delete NAME   如：
+  [T_T] linux02 ~# helm delete queenly-aardvark
+   release "queenly-aardvark" deleted
+   
+ 5、
+
+
