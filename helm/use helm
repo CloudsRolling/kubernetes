@@ -32,6 +32,20 @@
   [T_T] linux02 ~# helm delete queenly-aardvark
    release "queenly-aardvark" deleted
    
- 5、
+ 5、在~/.helm/cache/archive/下有相对应下载的taz，可解压查看规格和排版。基本是有参数组成的。 
+  自己开发chart如果有bug或者错误 可用helm lint检测语法； 如： helm lint mycharts
+ 
+ 6、 helm install --dry-run --debug 会模拟安装 chart，并输出每个模板生成的 YAML 内容。如：
+       helm install mycharts --dry-run --debug
+       
+ 7、安装chart
+   a、安装仓库中的 chart，例如：helm install stable/nginx
+   b、通过 tar 包安装，例如：helm install ./nginx-1.2.3.tgz
+   c、通过 chart 本地目录安装，例如：helm install ./nginx
+   d、通过 URL 安装，例如：helm install https://example.com/charts/nginx-1.2.3.tgz
+   
+ 
+ 
+  
 
 
