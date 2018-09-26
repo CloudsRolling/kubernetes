@@ -13,18 +13,47 @@ helm completion bash > .helmrc
 echo "source .helmrc" >> .bashrc
 source .bashrc
 
-二、安装tiller服务端
+二、安装tiller服务端  （不能科学上网，使用国内镜像）
 1、docker pull registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.10.0
 
-2，helm init --service-account tiller --upgrade -i registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.10.0 --skip-refresh
+2、 权限配置不然会报这种错 no release found
+   kubectl create serviceaccount --namespace kube-system tiller
+   kubectl create clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=kube-system:tiller
+   kubectl patch deploy --namespace kube-system tiller-deploy -p '{"spec":{"template":{"spec":{"serviceAccount":"tiller"}}}}' （此项高版本或许不起效）
 
-3，helm version
+3、 helm init -i registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.10.0  （我使用的）
+     或
+    helm init --service-account tiller --upgrade -i registry.cn-hangzhou.aliyuncs.com/google_containers/tiller:v2.10.0 --skip-refresh
+   
+   helm init常用配置项如下：
+    --canary-image：安装金丝雀build
+    --tiller-image：安装指定image
+    --kube-context：安装到指定的kubernetes集群
+    --tiller-namespace：安装到指定的namespace中
+    --upgrade：如果tiller server已经被安装了，可以使用此选项更新镜像
+    --service-account：用于指定运行tiller server的serviceaccount，该account需要事先在kubernetes集群中创建，且需要相应的rbac授权
+
+4，helm version
 Client: &version.Version{SemVer:"v2.10.0", GitCommit:"9ad53aac42165a5fadc6c87be0dea6b115f93090", GitTreeState:"clean"}
 Server: &version.Version{SemVer:"v2.10.0", GitCommit:"9ad53aac42165a5fadc6c87be0dea6b115f93090", GitTreeState:"clean"}
 
-4， kubectl get pod --all-namespaces 查看
-kube-system   tiller-deploy-56dd949bd5-zm9sq         1/1       Running   0          6m
+5、查看tiller的Service
+   [^_^] linux02 ~# kubectl get services -n kube-system
+    tiller-deploy                   ClusterIP   10.103.12.239   <none>        44134/TCP        15m
+  
+   查看tiller的Deployment
+   [^_^] linux02 ~# kubectl get deployment -n kube-system
+    tiller-deploy          1         1         1            1           16m
+    
+    查看tiller的Pod
+   [^_^] linux02 ~# kubectl get pods -n kube-system
+    tiller-deploy-56dd949bd5-t7kq5         1/1       Running   0          16m
 
-5，helm search 查看
+6、helm search 查看charts  stable是官方的  local是自己的
+
+ 
+7、查看repo   helm repo list 
+
+
 
 
