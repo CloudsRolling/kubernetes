@@ -1,6 +1,5 @@
 一：
-1、下载helm-v2.10.0-linux-amd64.tar.gz  地址：helm-v2.10.0-linux-amd64.tar.gz
-
+1、下载helm-v2.10.0-linux-amd64.tar.gz  地址：https://github.com/kubernetes/helm/releases
 2，解压缩 tar -zxvf helm-v2.10.0-linux-amd64.tar.gz
 
 3，mv linux-amd64/helm /usr/local/bin/helm
@@ -49,10 +48,15 @@ Server: &version.Version{SemVer:"v2.10.0", GitCommit:"9ad53aac42165a5fadc6c87be0
    [^_^] linux02 ~# kubectl get pods -n kube-system
     tiller-deploy-56dd949bd5-t7kq5         1/1       Running   0          16m
 
-6、helm search 查看charts  stable是官方的  local是自己的
+
+三、使用
+1、helm search 查看charts  stable是官方的  local是自己的
 
  
-7、查看repo   helm repo list 
+2、查看repo   helm repo list
+
+3、
+
 
 
 
