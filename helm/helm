@@ -49,13 +49,7 @@ Server: &version.Version{SemVer:"v2.10.0", GitCommit:"9ad53aac42165a5fadc6c87be0
     tiller-deploy-56dd949bd5-t7kq5         1/1       Running   0          16m
 
 
-三、使用
-1、helm search 查看charts  stable是官方的  local是自己的
 
- 
-2、查看repo   helm repo list
-
-3、
 
 
 
