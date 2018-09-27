@@ -23,9 +23,11 @@ metadata:
   name: httpd2-svc
   namespace: kube-public
 spec:
+  type: NodePort
   selector:
     run: httpd2
   ports:
   - protocol: TCP
+    nodePort: 31234
     port: 8080
     targetPort: 80
