@@ -1,0 +1,77 @@
+一、下载
+git clone clone https://github.com/coreos/prometheus-operator.git
+或：
+wget https://github.com/coreos/prometheus-operator/archive/v0.23.0.tar.gz并解压 （我用的是这种）
+
+
+二、部署
+1、官方推荐新建一个namespace，所有需要新建一个namespace
+
+[^_^] linux02 ~# kubectl create namespace monitoring
+
+[^_^] linux02 ~# kubectl get namespaces
+NAME          STATUS        AGE
+default       Active        22d
+kube-public   Active        22d
+kube-system   Active        22d
+monitoring    Terminating   1h
+
+2、修改配置文件：
+进入文件 cd prometheus-operator-0.23.0
+
+[^_^] linux02 prometheus-operator-0.23.0# vim bundle.yaml
+
+#总共有三处namespace需要修改 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-operator
+subjects:
+- kind: ServiceAccount
+  name: prometheus-operator
+  namespace: monitoring    #第一处
+  
+ ---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  labels:
+    k8s-app: prometheus-operator
+  name: prometheus-operator
+  namespace: monitoring   #第二处
+  
+
+
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus-operator
+  namespace: monitoring     #第三处
+
+3、执行创建：
+  kubectl apply -f bundle.yaml
+  
+4、部署kube-prometheus
+  kubectl apply -f contrib/kube-prometheus/manifests/
+ 
+5、查看 
+    kubectl get all -n monitoring
+	
+6、为了方便访问 ，修改访问方式，供外部访问
+    修改service的访问方式为NodePort  ,使用kubectl edit svc [svcname] -n monitoring方式修改
+	总共修改三个 
+	      alertmanager-main
+		  grafana
+		  prometheus-k8s
+	
+7、访问：https://47.94.3.211:31162	
+	
+	
+ 
+
